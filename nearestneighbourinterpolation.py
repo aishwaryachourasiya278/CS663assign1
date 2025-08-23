@@ -7,19 +7,18 @@ import matplotlib.pyplot as plt
 # Load an example image (replace 'your_image.tif' with your file)
 img = iio.imread('data/interp/random.png').astype(np.float32)
 print(f'Image shape: {img.shape}, dtype: {img.dtype}')
+M = img.shape[0]
+N = img.shape[1]
+M_new = 300*(M-1)+1
+N_new = 300*(N-1)+1
 
 # Display the image with 'jet' colormap
-plt.figure(figsize=(8, 6))
-plt.imshow(img, cmap='jet')
+plt.imshow(img, extent=[0, N, 0, M], origin='upper', cmap='jet')
 plt.colorbar(label='Intensity')
 plt.title('Image with Jet Colormap')
 plt.show()
 
 def myNearestNeighborInterpolation(img):
-    M = img.shape[0]
-    N = img.shape[1]
-    M_new = 300*(M-1)+1
-    N_new = 300*(N-1)+1
     Scale_X = (M-1)/(M_new-1)
     Scale_Y = (N-1)/(N_new-1)
     enlarged_img = np.zeros((M_new,N_new), dtype=img.dtype)
@@ -35,8 +34,7 @@ print(f'Enlarged Image shape: {enlarged_img.shape}, dtype: {enlarged_img.dtype}'
 
 
 # Display the image with 'jet' colormap
-plt.figure(figsize=(8, 6))
-plt.imshow(img, cmap='jet')
+plt.imshow(enlarged_img, extent=[0, N_new, 0, M_new], origin='upper', cmap='jet')
 plt.colorbar(label='Intensity')
 plt.title('Image with Jet Colormap')
 plt.show()
