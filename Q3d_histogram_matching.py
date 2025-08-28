@@ -1,86 +1,88 @@
-import cv2
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
+import imageio.v3 as iio
+from PIL import Image
 
-def myHistMatch(src, ref, num_bins=256):
-    """
-    Perform histogram matching of src image to match ref image
-    on luminance + chroma (ignoring black background).
-    """
-    # Convert to YCrCb
-    src_ycc = cv2.cvtColor(src, cv2.COLOR_RGB2YCrCb)
-    ref_ycc = cv2.cvtColor(ref, cv2.COLOR_RGB2YCrCb)
+def myHistMatch(src_img, ref_img, bins=256, show=True):
+    # --- Convert to YCrCb ---
+    src_ycc = cv2.cvtColor(src_img.astype(np.float32), cv2.COLOR_RGB2YCrCb)
+    ref_ycc = cv2.cvtColor(ref_img.astype(np.float32), cv2.COLOR_RGB2YCrCb)
 
-    src_Y, src_Cr, src_Cb = cv2.split(src_ycc)
-    ref_Y, ref_Cr, ref_Cb = cv2.split(ref_ycc)
+    Y_src, Cr_src, Cb_src = cv2.split(src_ycc)
+    Y_ref, Cr_ref, Cb_ref = cv2.split(ref_ycc)
 
-    # Create foreground masks (ignore black pixels)
-    src_mask = np.any(src > 0, axis=-1)
-    ref_mask = np.any(ref > 0, axis=-1)
+    # --- Mask: ignore black background ---
+    mask_src = np.any(src_img > 5, axis=-1)
+    mask_ref = np.any(ref_img > 5, axis=-1)
 
-    # Function to match histograms for one channel
-    def match_channel(src_chan, ref_chan, src_mask, ref_mask, num_bins):
-        # Flatten masked pixels
-        src_vals = src_chan[src_mask].ravel()
-        ref_vals = ref_chan[ref_mask].ravel()
+    # --- Compute histograms (masked) ---
+    hist_src, bin_edges = np.histogram(Y_src[mask_src], bins=bins, range=[0,256])
+    hist_ref, _         = np.histogram(Y_ref[mask_ref], bins=bins, range=[0,256])
 
-        # Compute histograms
-        src_hist, bins = np.histogram(src_vals, bins=num_bins, range=(0,256), density=True)
-        ref_hist, _    = np.histogram(ref_vals, bins=num_bins, range=(0,256), density=True)
+    # --- Compute CDFs ---
+    cdf_src = np.cumsum(hist_src).astype(np.float64)
+    cdf_src /= cdf_src[-1]
 
-        # Compute CDFs
-        src_cdf = np.cumsum(src_hist)
-        ref_cdf = np.cumsum(ref_hist)
-        src_cdf /= src_cdf[-1]
-        ref_cdf /= ref_cdf[-1]
+    cdf_ref = np.cumsum(hist_ref).astype(np.float64)
+    cdf_ref /= cdf_ref[-1]
 
-        # Build mapping: for each src intensity, find closest ref intensity
-        mapping = np.zeros(256, dtype=np.uint8)
-        for i in range(256):
-            diff = np.abs(src_cdf[i * (num_bins//256) : i * (num_bins//256) + 1] - ref_cdf)
-            mapping[i] = np.argmin(diff)
+    # --- Mapping function: inverse transform method ---
+    # For each gray level in source, find matching gray level in reference
+    mapping = np.zeros(bins, dtype=np.float32)
+    j = 0
+    for i in range(bins):
+        while j < bins-1 and cdf_ref[j] < cdf_src[i]:
+            j += 1
+        mapping[i] = j * (256.0/bins)
 
-        # Apply mapping only to foreground
-        matched = src_chan.copy()
-        matched[src_mask] = mapping[src_chan[src_mask]]
-        return matched
+    # --- Apply mapping to source luminance ---
+    Y_src_int = np.clip((Y_src * (bins-1)/255).astype(int), 0, bins-1)
+    Y_matched = mapping[Y_src_int]
 
-    # Match each channel
-    Y_matched  = match_channel(src_Y, ref_Y, src_mask, ref_mask, num_bins)
-    Cr_matched = match_channel(src_Cr, ref_Cr, src_mask, ref_mask, num_bins)
-    Cb_matched = match_channel(src_Cb, ref_Cb, src_mask, ref_mask, num_bins)
+    # --- Merge back channels ---
+    img_ycc_matched = cv2.merge([Y_matched, Cr_src, Cb_src])
+    img_matched = cv2.cvtColor(img_ycc_matched.astype(np.float32), cv2.COLOR_YCrCb2RGB)
 
-    # Merge channels
-    matched_ycc = cv2.merge([Y_matched, Cr_matched, Cb_matched])
-    matched_rgb = cv2.cvtColor(matched_ycc, cv2.COLOR_YCrCb2RGB)
+    if show:
+        fig, ax = plt.subplots(2, 3, figsize=(15,8))
 
-    return matched_rgb, (src_Y, Y_matched, ref_Y)
+        cmap_choice = "viridis"  # ≥200 colors
 
+        # Images
+        ax[0,0].imshow(src_img/255.0, cmap=cmap_choice)
+        ax[0,0].set_title("Source Image")
+        ax[0,1].imshow(ref_img/255.0, cmap=cmap_choice)
+        ax[0,1].set_title("Reference Image")
+        ax[0,2].imshow(img_matched/255.0, cmap=cmap_choice)
+        ax[0,2].set_title("Histogram Matched")
 
-# --------- Visualization ----------
-def show_hist_match(src, ref, matched, srcY, matchedY, refY):
-    fig, ax = plt.subplots(2, 3, figsize=(15, 8))
+        # Histograms
+        ax[1,0].hist(Y_src[mask_src].ravel(), bins=bins, range=(0,255), color="blue")
+        ax[1,0].set_title("Source Luminance Hist")
 
-    # Images
-    ax[0,0].imshow(src); ax[0,0].set_title("Source")
-    ax[0,1].imshow(ref); ax[0,1].set_title("Reference")
-    ax[0,2].imshow(matched); ax[0,2].set_title("Histogram Matched")
+        ax[1,1].hist(Y_ref[mask_ref].ravel(), bins=bins, range=(0,255), color="green")
+        ax[1,1].set_title("Reference Luminance Hist")
 
-    # Histograms (Y channel)
-    ax[1,0].hist(srcY.ravel(), bins=256, range=(0,256), color="blue")
-    ax[1,0].set_title("Source Y Histogram")
-    ax[1,1].hist(refY.ravel(), bins=256, range=(0,256), color="green")
-    ax[1,1].set_title("Reference Y Histogram")
-    ax[1,2].hist(matchedY.ravel(), bins=256, range=(0,256), color="red")
-    ax[1,2].set_title("Matched Y Histogram")
+        ax[1,2].hist(Y_matched[mask_src].ravel(), bins=bins, range=(0,255), color="red")
+        ax[1,2].set_title("Matched Luminance Hist")
 
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show()
 
+    return img_matched
 
-src = cv2.imread("data/hist/retina.png")
-src = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
-ref = cv2.imread("data/hist/retinaRef.png")
-ref = cv2.cvtColor(ref, cv2.COLOR_BGR2RGB)
-matched, (srcY, matchedY, refY) = myHistMatch(src, ref, num_bins=128)
-show_hist_match(src, ref, matched, srcY, matchedY, refY)
+# ---------- Run ----------
+img1_path = "data/hist/retina.png"
+img2_path = "data/hist/retinaRef.png"
+
+try:
+    img1 = iio.imread(img1_path).astype(np.float32)
+    img2 = iio.imread(img2_path).astype(np.float32)
+except:
+    img1 = np.array(Image.open(img1_path)).astype(np.float32)
+    img2 = np.array(Image.open(img2_path)).astype(np.float32)
+
+print("Source dtype:", img1.dtype, "Reference dtype:", img2.dtype)
+
+matched_img = myHistMatch(img1, img2, bins=128, show=True)

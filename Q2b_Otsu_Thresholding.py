@@ -2,41 +2,58 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 
-def otsu_threshold_math(img_path, show=True):
-    # Load image and convert to grayscale if needed
-    img = np.array(Image.open(img_path).convert("L"))
+def otsu_threshold_math(img_path, show=True, cmap="gray"):
+    # Load image and convert to grayscale
+    img = np.array(Image.open(img_path).convert("L")).astype(np.float32)
+
+    # Histogram
     hist, bins = np.histogram(img.ravel(), bins=256, range=(0, 256))
     total = img.size
+    P = hist / total  # normalized histogram (probabilities)
 
-    # Normalize histogram to probabilities
-    prob = hist / total
-    omega = np.cumsum(prob)               # cumulative sum (w0, w1)
-    mu = np.cumsum(prob * np.arange(256)) # cumulative mean
+    # Cumulative sums
+    cumulative_prob = np.cumsum(P)
+    cumulative_mean = np.cumsum(np.arange(256) * P)
+    global_mean = cumulative_mean[-1]
 
-    mu_t = mu[-1]  # global mean
+    # Otsu loop (explicit)
+    max_between_var = -1.0
+    optimal_thresh = 0
+    for t in range(1, 256):
+        w0 = cumulative_prob[t]
+        w1 = 1 - w0
+        if w0 == 0 or w1 == 0:
+            continue
+        mu0 = cumulative_mean[t] / w0
+        mu1 = (global_mean - cumulative_mean[t]) / w1
+        sigma_b2 = w0 * w1 * (mu0 - mu1) ** 2
+        if sigma_b2 > max_between_var:
+            max_between_var = sigma_b2
+            optimal_thresh = t
 
-    # Between-class variance formula
-    sigma_b_squared = (mu_t * omega - mu)**2 / (omega * (1 - omega) + 1e-8)
-
-    # Best threshold = argmax of sigma_b_squared
-    threshold = np.nanargmax(sigma_b_squared)
-
-    # Apply threshold
-    binary_img = (img > threshold).astype(np.uint8) * 255
+    # Thresholding (keep float, no rounding off)
+    binary_img = (img > optimal_thresh).astype(np.float32) * 255.0
 
     if show:
-        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-        ax[0].imshow(img, cmap="gray")
+        fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+
+        im0 = ax[0].imshow(img, cmap=cmap)
         ax[0].set_title("Original Image")
         ax[0].axis("off")
+        plt.colorbar(im0, ax=ax[0], fraction=0.046, pad=0.04)
 
-        ax[1].imshow(binary_img, cmap="gray")
-        ax[1].set_title(f"Otsu Threshold = {threshold}")
+        im1 = ax[1].imshow(binary_img, cmap=cmap)
+        ax[1].set_title(f"Otsu Threshold = {optimal_thresh}")
         ax[1].axis("off")
+        plt.colorbar(im1, ax=ax[1], fraction=0.046, pad=0.04)
+
+        plt.tight_layout()
         plt.show()
 
-    return binary_img, threshold
+    return binary_img, optimal_thresh
 
+
+# ---- Run on your images ----
 images = [
     "data/thresh/receipt.png",
     "data/thresh/blackboard.png",
@@ -45,5 +62,5 @@ images = [
 ]
 
 for img_path in images:
-    bin_img, t = otsu_threshold_math(img_path)
+    bin_img, t = otsu_threshold_math(img_path, cmap="gray")
     print(f"Otsu threshold for {img_path}: {t}")
