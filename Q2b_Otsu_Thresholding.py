@@ -53,7 +53,7 @@ def otsu_threshold_math(img_path, show=True, cmap="gray"):
     return binary_img, optimal_thresh
 
 
-# ---- Run on your images ----
+
 images = [
     "data/thresh/receipt.png",
     "data/thresh/blackboard.png",
