@@ -16,7 +16,7 @@ def otsu_threshold_math(img_path, show=True, cmap="gray"):
     cumulative_mean = np.cumsum(np.arange(256) * P)
     global_mean = cumulative_mean[-1]
 
-    # Otsu loop (explicit)
+    # Otsu loop
     max_between_var = -1.0
     optimal_thresh = 0
     for t in range(1, 256):

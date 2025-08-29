@@ -47,8 +47,15 @@ def Otsu_Thresholding(img, show=True, cmap="gray"):
 
     if show:
         fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-        if img_type == "rgb":
-            im0 = ax[0].imshow(img / np.max(img), cmap=cmap, vmin=0, vmax=200)
+        # If img is RGB, convert to grayscale
+        if img.ndim == 3 and img.shape[2] == 3:
+            gray_img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2GRAY)
+        # Display grayscale image
+            im0 = ax[0].imshow(gray_img, cmap=cmap, vmin=0, vmax=200)
+            ax[0].set_title("Grayscale Image")
+            ax[0].axis("off")
+
+
         else:
             im0 = ax[0].imshow(img, cmap=cmap, vmin=0, vmax=200)
         ax[0].set_title("Original Image")

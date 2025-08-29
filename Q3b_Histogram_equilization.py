@@ -39,19 +39,19 @@ def myHistEqualize(img, show=True):
         cmap_choice = "bone"  # ≥200 colors
 
         if img.ndim == 3:
-            im1 = ax[0,0].imshow(img / 255.0, cmap=cmap_choice)
+            im1 = ax[0,0].imshow(img / 255.0, cmap=cmap_choice, vmin=0, vmax=255)
             ax[0,0].set_title("Original Image")
             plt.colorbar(im1, ax=ax[0,0])
 
-            im2 = ax[0,1].imshow(img_eq / 255.0, cmap=cmap_choice)
+            im2 = ax[0,1].imshow(img_eq / 255.0, cmap=cmap_choice, vmin=0, vmax=255)
             ax[0,1].set_title("Equalized Image")
             plt.colorbar(im2, ax=ax[0,1])
         else:
-            im1 = ax[0,0].imshow(img, cmap=cmap_choice)
+            im1 = ax[0,0].imshow(img, cmap=cmap_choice, vmin=0, vmax=255)
             ax[0,0].set_title("Original Image")
             plt.colorbar(im1, ax=ax[0,0])
 
-            im2 = ax[0,1].imshow(img_eq, cmap=cmap_choice)
+            im2 = ax[0,1].imshow(img_eq, cmap=cmap_choice, vmin=0, vmax=255)
             ax[0,1].set_title("Equalized Image")
             plt.colorbar(im2, ax=ax[0,1])
 

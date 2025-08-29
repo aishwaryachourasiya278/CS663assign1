@@ -27,20 +27,20 @@ def myLinearContrastStretch(img, show=True):
         # Grayscale image
         f_min, f_max = np.min(img), np.max(img)
         print(f"Min={f_min}, Max={f_max}, dtype={img.dtype}")
-        stretched_img = (img - f_min) / (f_max - f_min) * 255.0
+        stretched_img = abs(img - f_min) / (f_max - f_min) * 255.0
         stretched_img = stretched_img.astype(np.float32)
 
     if show:
         fig, ax = plt.subplots(2, 2, figsize=(12, 8))
 
         # Original image
-        im0 = ax[0,0].imshow(img / 255.0, cmap="bone")
+        im0 = ax[0,0].imshow(img / 255.0, cmap="bone", vmin=0, vmax=255)
         ax[0,0].set_title("Original Image")
         ax[0,0].axis("off")
         plt.colorbar(im0, ax=ax[0,0], fraction=0.046, pad=0.04)
 
         # Show enhanced image
-        im1 = ax[0,1].imshow(stretched_img / 255.0, cmap="bone")
+        im1 = ax[0,1].imshow(stretched_img / 255.0, cmap="bone", vmin=0, vmax=255)
         ax[0,1].set_title("Contrast-Stretched Image")
         ax[0,1].axis("off")
         plt.colorbar(im1, ax=ax[0,1], fraction=0.046, pad=0.04)

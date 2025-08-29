@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import imageio.v3 as iio
 from PIL import Image
 
-def myHistMatch(src_img, ref_img, bins=256, show=True):
+def myHistMatch(src_img, ref_img, bins=8, show=True):
     # --- Convert to YCrCb ---
     src_ycc = cv2.cvtColor(src_img.astype(np.float32), cv2.COLOR_RGB2YCrCb)
     ref_ycc = cv2.cvtColor(ref_img.astype(np.float32), cv2.COLOR_RGB2YCrCb)
@@ -50,12 +50,29 @@ def myHistMatch(src_img, ref_img, bins=256, show=True):
         cmap_choice = "viridis"  # ≥200 colors
 
         # Images
-        ax[0,0].imshow(src_img/255.0, cmap=cmap_choice)
+        # Images
+        im0 = ax[0,0].imshow(src_img/255.0, cmap="copper", vmin=0, vmax=255)
         ax[0,0].set_title("Source Image")
-        ax[0,1].imshow(ref_img/255.0, cmap=cmap_choice)
+        fig.colorbar(im0, ax=ax[0,0], fraction=0.046, pad=0.04)
+
+        im1 = ax[0,1].imshow(ref_img/255.0, cmap="copper", vmin=0, vmax=255)
         ax[0,1].set_title("Reference Image")
-        ax[0,2].imshow(img_matched/255.0, cmap=cmap_choice)
+        fig.colorbar(im1, ax=ax[0,1], fraction=0.046, pad=0.04)
+
+        im2 = ax[0,2].imshow(img_matched/255.0, cmap="copper", vmin=0, vmax=255)
         ax[0,2].set_title("Histogram Matched")
+        fig.colorbar(im2, ax=ax[0,2], fraction=0.046, pad=0.04)
+
+        # Histograms
+        ax[1,0].hist(Y_src[mask_src].ravel(), bins=bins, range=(0,255), color="blue")
+        ax[1,0].set_title("Source Luminance Hist")
+
+        ax[1,1].hist(Y_ref[mask_ref].ravel(), bins=bins, range=(0,255), color="green")
+        ax[1,1].set_title("Reference Luminance Hist")
+
+        ax[1,2].hist(Y_matched[mask_src].ravel(), bins=bins, range=(0,255), color="red")
+        ax[1,2].set_title("Matched Luminance Hist")
+
 
         # Histograms
         ax[1,0].hist(Y_src[mask_src].ravel(), bins=bins, range=(0,255), color="blue")
@@ -72,7 +89,7 @@ def myHistMatch(src_img, ref_img, bins=256, show=True):
 
     return img_matched
 
-# ---------- Run ----------
+
 img1_path = "data/hist/retina.png"
 img2_path = "data/hist/retinaRef.png"
 
@@ -85,4 +102,4 @@ except:
 
 print("Source dtype:", img1.dtype, "Reference dtype:", img2.dtype)
 
-matched_img = myHistMatch(img1, img2, bins=128, show=True)
+matched_img = myHistMatch(img1, img2, bins=8, show=True)

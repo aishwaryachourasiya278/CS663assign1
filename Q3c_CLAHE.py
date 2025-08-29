@@ -5,85 +5,79 @@ import imageio.v3 as iio
 from PIL import Image
 
 def myCLAHE(img, window_size=32, num_bins=256, clip_limit=0.01, show=True):
-
-    # Convert to YCrCb from RGB
+    # Convert to YCrCb from RGB (operate on Y channel only)
     if img.ndim == 3:
         img_ycc = cv2.cvtColor(img.astype(np.float32), cv2.COLOR_RGB2YCrCb)
         Y, Cr, Cb = cv2.split(img_ycc)
     else:
         Y = img.astype(np.float32)
         Cr, Cb = None, None
-    
+
     h, w = Y.shape
     out_Y = np.zeros_like(Y, dtype=np.float32)
-
     half = window_size // 2
     
-    # Processing each pixel with local histogram
+    # Local CLAHE pixel-wise
     for i in range(h):
         for j in range(w):
-            # crop region
-            y0 = max(0, i - half)
-            y1 = min(h, i + half + 1)
-            x0 = max(0, j - half)
-            x1 = min(w, j + half + 1)
+            y0, y1 = max(0, i-half), min(h, i+half+1)
+            x0, x1 = max(0, j-half), min(w, j+half+1)
             region = Y[y0:y1, x0:x1].flatten()
 
-            # histogram
-            hist, bins = np.histogram(region, bins=num_bins, range=[0,256])
+            # Histogram
+            hist, _ = np.histogram(region, bins=num_bins, range=[0,256])
             total = region.size
 
-            #Clipping the histogram
+            # Clip histogram
             clip_val = clip_limit * total
             excess = np.maximum(hist - clip_val, 0).sum()
             hist = np.minimum(hist, clip_val)
+            hist += excess / num_bins  # redistribute
 
-            # redistribute excess uniformly
-            hist += excess / num_bins
-
-            # CDF computation
+            # Normalize CDF
             cdf = hist.cumsum()
-            cdf = cdf / cdf[-1]  # normalize 0-1
+            cdf = cdf / cdf[-1]
 
-            # Map the pixel
-            intensity = int(Y[i,j])
-            out_Y[i,j] = cdf[intensity] * 255.0
+            intensity = int(Y[i, j])
+            idx = min(intensity * num_bins // 256, num_bins-1)  # map to bin index
+            out_Y[i, j] = cdf[idx] * 255.0
     
-    # Image reconstruction
+    # Recombine channels
     if img.ndim == 3:
         img_ycc_eq = cv2.merge([out_Y, Cr, Cb])
         img_eq = cv2.cvtColor(img_ycc_eq.astype(np.float32), cv2.COLOR_YCrCb2RGB)
     else:
         img_eq = out_Y
 
-    #Visualization 
+    # Visualization
     if show:
-        cmap_choice = "BrBG"   # ≥200 colors
+        cmap_choice = "BrBG"   # diverging colormap with wide range
 
-        fig, ax = plt.subplots(1, 2, figsize=(12,6))
+        # Show original & CLAHE images with colorbars
+        fig, ax = plt.subplots(1, 2, figsize=(12, 6))
         im1 = ax[0].imshow(img/255.0 if img.ndim==3 else img, cmap=cmap_choice)
         ax[0].set_title("Original Image")
         plt.colorbar(im1, ax=ax[0])
 
         im2 = ax[1].imshow(img_eq/255.0 if img.ndim==3 else img_eq, cmap=cmap_choice)
-        ax[1].set_title("CLAHE Image")
+        ax[1].set_title(f"CLAHE (W={window_size}, B={num_bins}, CL={clip_limit})")
         plt.colorbar(im2, ax=ax[1])
-
         plt.tight_layout()
         plt.show()
 
-        # Histograms
-        fig, ax = plt.subplots(1, 2, figsize=(12,4))
-        ax[0].hist(Y.ravel(), bins=256, range=(0,255), color='blue')
+        # Show luminance histograms
+        fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+        ax[0].hist(Y.ravel(), bins=256, range=(0, 255), color='blue')
         ax[0].set_title("Original Luminance Histogram")
-        ax[1].hist(out_Y.ravel(), bins=256, range=(0,255), color='green')
+        ax[1].hist(out_Y.ravel(), bins=256, range=(0, 255), color='green')
         ax[1].set_title("CLAHE Luminance Histogram")
+        plt.tight_layout()
         plt.show()
 
     return img_eq
 
 
-# To run tests
+# Run experiments with immediate plotting
 def run_CLAHE_experiments(img_path):
     try:
         img = iio.imread(img_path).astype(np.float32)
@@ -92,21 +86,21 @@ def run_CLAHE_experiments(img_path):
 
     print(f"\nProcessing: {img_path}, dtype={img.dtype}, shape={img.shape}")
 
-    # --- Baseline tuned params ---
-    print("Baseline CLAHE")
-    myCLAHE(img, window_size=32, num_bins=256, clip_limit=0.01, show=True)
+    combos = [
+        (16, 64, 0.005),
+        (16, 128, 0.01),
+        (16, 256, 0.02),
+        (32, 64, 0.01),
+        (32, 128, 0.02),
+        (32, 256, 0.005),
+        (64, 64, 0.02),
+        (64, 128, 0.005),
+        (64, 256, 0.01),
+    ]
 
-    # --- Larger window: low contrast improvement ---
-    print("Larger Window (less enhancement)")
-    myCLAHE(img, window_size=64, num_bins=256, clip_limit=0.01, show=True)
-
-    # --- Smaller window: excessive noise ---
-    print("Smaller Window (more noise)")
-    myCLAHE(img, window_size=8, num_bins=256, clip_limit=0.01, show=True)
-
-    # --- Lower clip limit: more aggressive enhancement ---
-    print("Lower clip limit (more enhancement, risk of noise)")
-    myCLAHE(img, window_size=32, num_bins=256, clip_limit=0.005, show=True)
+    for (w, b, cl) in combos:
+        print(f"Running CLAHE: window={w}, bins={b}, clip={cl}")
+        _ = myCLAHE(img, window_size=w, num_bins=b, clip_limit=cl, show=True)
 
 
 # ----------- Run on Canyon & Retina ----------
