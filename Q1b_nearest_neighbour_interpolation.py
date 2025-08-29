@@ -15,7 +15,7 @@ N_new = 300*(N-1)+1
 # Display the image with 'jet' colormap
 plt.imshow(img, extent=[0, N, 0, M], cmap='jet')
 plt.colorbar(label='Intensity')
-plt.title('Image with Jet Colormap')
+plt.title('Input')
 plt.show()
 
 def myNearestNeighborInterpolation(img):
@@ -36,7 +36,7 @@ print(f'Enlarged Image shape: {enlarged_img.shape}, dtype: {enlarged_img.dtype}'
 # Display the image with 'jet' colormap
 plt.imshow(enlarged_img, extent=[0, N_new, 0, M_new], cmap='jet')
 plt.colorbar(label='Intensity')
-plt.title('Image with Jet Colormap')
+plt.title('Output after Nearest Neighbour Interpolation')
 plt.show()
 
     

@@ -11,7 +11,7 @@ N_new = 300 * (N - 1) + 1
 # Display the image with 'jet' colormap
 plt.imshow(img, extent=[0, M, 0, N], cmap='jet')
 plt.colorbar(label='Intensity')
-plt.title('Image with Jet Colormap')
+plt.title('Input Image')
 plt.show()
 
 def myBicubicInterpolation(img,M,N,M_new,N_new):
@@ -69,5 +69,5 @@ enlarged_img = myBicubicInterpolation(img,M,N,M_new,N_new)
 print(f'Enlarged Image shape: {enlarged_img.shape}, dtype: {enlarged_img.dtype}')
 plt.imshow(enlarged_img, extent=[0, M_new, 0, N_new], cmap='jet')
 plt.colorbar(label='Intensity')
-plt.title('Image with Jet Colormap')
+plt.title('Output of Bicubic interpolation')
 plt.show()
